@@ -1,0 +1,47 @@
+{
+  "name": "mapa-do-crime-portugal",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": "22.x",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:contracts",
+    "test:contracts": "node --experimental-strip-types --import ./tests/helpers/register-alias.mjs --test tests/*.test.mjs",
+    "test:api": "node --experimental-strip-types --import ./tests/helpers/register-api-hooks.mjs --test tests/api/*.test.mjs",
+    "test:app": "npm run test:contracts",
+    "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "smoke": "node scripts/smoke-public-routes.mjs",
+    "check:ai-keys": "node scripts/check_ai_keys.mjs",
+    "test:visual": "playwright test"
+  },
+  "dependencies": {
+    "lucide-react": "1.21.0",
+    "maplibre-gl": "5.24.0",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.5",
+    "@playwright/test": "^1.61.0",
+    "@tailwindcss/postcss": "4.3.1",
+    "@types/node": "26.0.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "4.3.1",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "postcss": "8.5.15"
+  }
+}

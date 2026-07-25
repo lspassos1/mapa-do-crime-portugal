@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Local data artifacts
+data/raw/
+data/manual/
+data/processed/
+data/geo/
+*.part
+*.zip
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.mbtiles
+*.pmtiles
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+.claude/launch.json
+
+# Playwright (verificação visual — #13)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
