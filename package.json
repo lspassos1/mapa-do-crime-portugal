@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "validate": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "etl": "python3 etl/etl_pt.py src/data"
+    "etl": "python3 etl/etl_pt.py src/data",
+    "prebuild": "node scripts/fetch-data.mjs"
   },
   "dependencies": {
     "lucide-react": "1.21.0",
