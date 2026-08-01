@@ -3,23 +3,54 @@
 import { useEffect, useState } from "react";
 
 // Relógio do header ISOLADO em componente próprio: o tick de 1s re-renderiza
-// SÓ este bloco, nunca a árvore do header/página — as animações CSS (pulso,
-// halo, varredura) seguem contínuas. Começa com placeholder no SSR e só mostra
-// a hora após montar (evita mismatch de hidratação).
+// SÓ este bloco, nunca a árvore do header/página. Começa com placeholder no SSR
+// e só mostra a hora após montar (evita mismatch de hidratação). A hora é
+// sempre a de Lisboa — o produto é sobre Portugal, não sobre quem o consulta.
 const DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 const p2 = (n: number) => String(n).padStart(2, "0");
 
-function fmtRelogio(d: Date): string {
-  return `${DIAS[d.getDay()]} ${p2(d.getDate())} ${MESES[d.getMonth()]} ${d.getFullYear()} · ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} BRT`;
+const LISBOA = "Europe/Lisbon";
+
+/** Partes da data já convertidas para o fuso de Lisboa. */
+function emLisboa(d: Date) {
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LISBOA,
+    weekday: "short",
+    day: "2-digit",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).formatToParts(d);
+  const g = (t: string) => f.find((x) => x.type === t)?.value ?? "";
+  return {
+    dia: Number(g("day")),
+    mes: Number(g("month")),
+    ano: g("year"),
+    h: g("hour"),
+    m: g("minute"),
+    s: g("second"),
+    diaSemana: g("weekday").toUpperCase(),
+    tz: g("timeZoneName"), // WET / WEST conforme a estação
+  };
 }
 
-// Janela viva do radar (últimos 7 dias): "24–30 JUN 2026".
+const SEMANA: Record<string, string> = { SUN: "DOM", MON: "SEG", TUE: "TER", WED: "QUA", THU: "QUI", FRI: "SEX", SAT: "SÁB" };
+
+function fmtRelogio(d: Date): string {
+  const t = emLisboa(d);
+  const ds = SEMANA[t.diaSemana.slice(0, 3)] ?? DIAS[d.getDay()];
+  return `${ds} ${p2(t.dia)} ${MESES[t.mes - 1]} ${t.ano} · ${t.h}:${t.m}:${t.s} ${t.tz}`;
+}
+
+// Ano de referência da série exibida (o dado do INE é anual, não há "janela viva").
 function fmtJanela(d: Date): string {
-  const ini = new Date(d.getTime() - 6 * 86400000);
-  const fim = `${p2(d.getDate())} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
-  if (ini.getMonth() === d.getMonth()) return `${p2(ini.getDate())}–${fim}`;
-  return `${p2(ini.getDate())} ${MESES[ini.getMonth()]} – ${fim}`;
+  const t = emLisboa(d);
+  return `LISBOA · ${t.ano}`;
 }
 
 export function HeaderClock() {
