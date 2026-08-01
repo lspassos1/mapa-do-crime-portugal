@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """ETL do Mapa do Crime Portugal.
 
+Gera os assets compactos que a app importa:
+  - crimePt.min.json      series posicionais [ano][categoria], -1 = sem valor
+  - concelhosMesh.min.json malha quantizada + delta-encoded (estilo TopoJSON)
+  - concelhos.json        dicionario (DICO, nome, distrito, centroide, slug)
+A compactacao corta ~3,4x (806 KB -> 234 KB) sem perder informacao util.
+
 Fontes (todas CC-BY / dados abertos oficiais):
   - Crime municipal: INE varcd=0012261 "Crimes registados pelas autoridades
     policiais por Localização geográfica (NUTS-2024) e Categoria de crime"

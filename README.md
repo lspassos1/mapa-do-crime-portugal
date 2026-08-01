@@ -46,3 +46,15 @@ npm install && npm run dev
 **Emergência: 112 · Violência doméstica: 800 202 148 (gratuita, 24h)**
 
 AGPL-3.0
+
+## Assets compactos
+
+Os dados que a app importa são gerados em formato compacto pelo ETL:
+
+| Asset | Formato | Tamanho |
+|---|---|---|
+| `concelhosMesh.min.json` | malha quantizada + delta-encoded (estilo TopoJSON) | 175 KB *(de 546 KB)* |
+| `crimePt.min.json` | séries posicionais `[ano][categoria]`, `-1` = sem valor | 58 KB *(de 259 KB)* |
+| `concelhos.json` | dicionário: DICO, nome, distrito, centroide, slug | 52 KB |
+
+**3,4× menor** no total, sem perder informação útil — a descodificação acontece uma vez no arranque. Os testes reidratam os formatos e validam o **conteúdo**, não a representação.

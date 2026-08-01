@@ -2,13 +2,52 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import mesh from "@/data/concelhosMesh.json";
+import meshMin from "@/data/concelhosMesh.min.json";
 import { mapTileAttribution, mapTileUrls } from "@/lib/mapConfig";
 import { corPara, fmtInt, fmtTaxa, type LinhaConcelho } from "@/lib/crime";
 
 // Enquadramento de Portugal: continente + arquipélagos ficam longe demais para
 // um único enquadramento útil, por isso o mapa abre no continente e os Açores/
 // Madeira são alcançáveis por zoom-out (ou pelos atalhos do painel).
+// A malha vem quantizada e delta-encoded (ver etl/): descodifica-se uma vez
+// para GeoJSON no arranque. 175 KB no bundle em vez de 546 KB.
+interface MeshMin {
+  transform: { scale: [number, number]; translate: [number, number] };
+  concelhos: { d: string; n: string; t: string; g: number[][][] }[];
+}
+
+function descodificarMalha(): GeoJSON.FeatureCollection {
+  const m = meshMin as unknown as MeshMin;
+  const [sx, sy] = m.transform.scale;
+  const [tx, ty] = m.transform.translate;
+  const features = m.concelhos.map((c) => {
+    const polys = c.g.map((poly) =>
+      poly.map((plano) => {
+        const anel: [number, number][] = [];
+        let x = 0;
+        let y = 0;
+        for (let i = 0; i < plano.length; i += 2) {
+          x += plano[i];
+          y += plano[i + 1];
+          anel.push([x * sx + tx, y * sy + ty]);
+        }
+        return anel;
+      }),
+    );
+    return {
+      type: "Feature" as const,
+      properties: { dico: c.d, nome: c.n, distrito: c.t },
+      geometry:
+        polys.length === 1
+          ? { type: "Polygon" as const, coordinates: polys[0] }
+          : { type: "MultiPolygon" as const, coordinates: polys },
+    };
+  });
+  return { type: "FeatureCollection", features };
+}
+
+const mesh = descodificarMalha();
+
 export const VISTAS = {
   continente: { center: [-8.2, 39.7] as [number, number], zoom: 6.35 },
   madeira: { center: [-16.95, 32.75] as [number, number], zoom: 8.6 },

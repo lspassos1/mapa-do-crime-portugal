@@ -1,4 +1,4 @@
-import crimeAsset from "@/data/crimePt.json";
+import crimeAsset from "@/data/crimePt.min.json";
 import concelhosAsset from "@/data/concelhos.json";
 
 // Camada de dados do produto. Tudo vem de assets versionados gerados pelo ETL
@@ -15,14 +15,19 @@ export type CategoriaKey =
   | "rouboViaPublica"
   | "conducaoAlcool";
 
+// Formato compacto (ver etl/): as séries são matrizes posicionais
+// [índice do ano][índice da categoria] e -1 significa "sem valor" — poupa ~4x
+// face a repetir as chaves 308×5×9 vezes.
 interface CrimeAsset {
   fonte: string;
   licenca: string;
   unidade: string;
   anos: number[];
   categorias: Record<string, string>;
-  series: Record<string, Record<string, Partial<Record<CategoriaKey, number>>>>;
-  populacao: Record<string, Record<string, number>>;
+  ordemCategorias: CategoriaKey[];
+  anosPopulacao: string[];
+  series: Record<string, number[][]>;
+  populacao: Record<string, number[]>;
 }
 
 export interface Concelho {
@@ -38,6 +43,18 @@ export interface Concelho {
 
 const asset = crimeAsset as unknown as CrimeAsset;
 const concelhos = (concelhosAsset as { concelhos: Concelho[] }).concelhos;
+
+const idxAno = new Map(asset.anos.map((a, i) => [a, i]));
+const idxCat = new Map(asset.ordemCategorias.map((c, i) => [c, i]));
+
+/** Valor de um concelho/ano/categoria, ou undefined quando não há registo. */
+function valorDe(dico: string, ano: number, categoria: CategoriaKey): number | undefined {
+  const ia = idxAno.get(ano);
+  const ic = idxCat.get(categoria);
+  if (ia === undefined || ic === undefined) return undefined;
+  const v = asset.series[dico]?.[ia]?.[ic];
+  return v === undefined || v < 0 ? undefined : v;
+}
 
 export const FONTE = asset.fonte;
 export const UNIDADE = asset.unidade;
@@ -69,13 +86,13 @@ export function getConcelho(dico: string): Concelho | undefined {
 export function populacao(dico: string, ano: number): { valor: number; anoUsado: number } | null {
   const serie = asset.populacao[dico];
   if (!serie) return null;
-  const anos = Object.keys(serie)
-    .map(Number)
-    .sort((a, b) => b - a);
-  if (!anos.length) return null;
-  const exato = anos.find((a) => a === ano);
-  const usado = exato ?? anos[0];
-  return { valor: serie[String(usado)], anoUsado: usado };
+  const disponiveis = asset.anosPopulacao
+    .map((a, i) => ({ ano: Number(a), valor: serie[i] }))
+    .filter((x) => x.valor >= 0)
+    .sort((a, b) => b.ano - a.ano);
+  if (!disponiveis.length) return null;
+  const escolhido = disponiveis.find((x) => x.ano === ano) ?? disponiveis[0];
+  return { valor: escolhido.valor, anoUsado: escolhido.ano };
 }
 
 export interface LinhaConcelho {
@@ -95,7 +112,7 @@ export interface LinhaConcelho {
 export function linhas(ano: number, categoria: CategoriaKey): LinhaConcelho[] {
   const out: LinhaConcelho[] = [];
   for (const c of concelhos) {
-    const valor = asset.series[c.dico]?.[String(ano)]?.[categoria];
+    const valor = valorDe(c.dico, ano, categoria);
     if (valor === undefined) continue;
     const p = populacao(c.dico, ano);
     out.push({
@@ -116,16 +133,16 @@ export function linhas(ano: number, categoria: CategoriaKey): LinhaConcelho[] {
 // Série anual de um concelho (ou do país inteiro quando dico = null).
 export function serie(dico: string | null, categoria: CategoriaKey): { ano: number; valor: number }[] {
   return ANOS.map((ano) => {
-    if (dico) return { ano, valor: asset.series[dico]?.[String(ano)]?.[categoria] ?? 0 };
+    if (dico) return { ano, valor: valorDe(dico, ano, categoria) ?? 0 };
     let soma = 0;
-    for (const d of Object.keys(asset.series)) soma += asset.series[d]?.[String(ano)]?.[categoria] ?? 0;
+    for (const d of Object.keys(asset.series)) soma += valorDe(d, ano, categoria) ?? 0;
     return { ano, valor: soma };
   });
 }
 
 export function totalNacional(ano: number, categoria: CategoriaKey): number {
   let soma = 0;
-  for (const d of Object.keys(asset.series)) soma += asset.series[d]?.[String(ano)]?.[categoria] ?? 0;
+  for (const d of Object.keys(asset.series)) soma += valorDe(d, ano, categoria) ?? 0;
   return soma;
 }
 

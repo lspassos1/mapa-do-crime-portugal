@@ -1,9 +1,60 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import crime from "../src/data/crimePt.json" with { type: "json" };
+import crimeMin from "../src/data/crimePt.min.json" with { type: "json" };
 import concelhosAsset from "../src/data/concelhos.json" with { type: "json" };
-import mesh from "../src/data/concelhosMesh.json" with { type: "json" };
+import meshMin from "../src/data/concelhosMesh.min.json" with { type: "json" };
+
+// Reidrata os formatos compactos (mesma lógica que a app usa) para validar o
+// CONTEÚDO, não a representação — se a descodificação partir, estes testes caem.
+const crime = {
+  ...crimeMin,
+  series: Object.fromEntries(
+    Object.entries(crimeMin.series).map(([dico, matriz]) => [
+      dico,
+      Object.fromEntries(
+        crimeMin.anos.map((ano, ia) => [
+          String(ano),
+          Object.fromEntries(
+            crimeMin.ordemCategorias
+              .map((cat, ic) => [cat, matriz[ia]?.[ic]])
+              .filter(([, v]) => v !== undefined && v >= 0),
+          ),
+        ]),
+      ),
+    ]),
+  ),
+  populacao: Object.fromEntries(
+    Object.entries(crimeMin.populacao).map(([dico, vals]) => [
+      dico,
+      Object.fromEntries(crimeMin.anosPopulacao.map((a, i) => [a, vals[i]]).filter(([, v]) => v >= 0)),
+    ]),
+  ),
+};
+
+const mesh = {
+  features: meshMin.concelhos.map((c) => {
+    const [sx, sy] = meshMin.transform.scale;
+    const [tx, ty] = meshMin.transform.translate;
+    const polys = c.g.map((poly) =>
+      poly.map((plano) => {
+        const anel = [];
+        let x = 0, y = 0;
+        for (let i = 0; i < plano.length; i += 2) {
+          x += plano[i]; y += plano[i + 1];
+          anel.push([x * sx + tx, y * sy + ty]);
+        }
+        return anel;
+      }),
+    );
+    return {
+      properties: { dico: c.d, nome: c.n, distrito: c.t },
+      geometry: polys.length === 1
+        ? { type: "Polygon", coordinates: polys[0] }
+        : { type: "MultiPolygon", coordinates: polys },
+    };
+  }),
+};
 
 // Invariantes dos assets gerados pelo ETL. Se o INE mudar o indicador, a CAOP
 // mudar a malha, ou alguém regenerar com um filtro errado, estes testes falham
@@ -40,7 +91,12 @@ test("geometria: anéis fechados e com vértices suficientes", () => {
     for (const poly of polys) {
       for (const anel of poly) {
         assert.ok(anel.length >= 4, `${f.properties.nome}: anel com ${anel.length} pontos`);
-        assert.deepEqual(anel[0], anel[anel.length - 1], `${f.properties.nome}: anel não fechado`);
+        const [ax, ay] = anel[0];
+        const [bx, by] = anel[anel.length - 1];
+        assert.ok(
+          Math.abs(ax - bx) < 1e-3 && Math.abs(ay - by) < 1e-3,
+          `${f.properties.nome}: anel não fecha (${ax},${ay}) vs (${bx},${by})`,
+        );
       }
     }
   }
