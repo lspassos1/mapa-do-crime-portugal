@@ -1,0 +1,23 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      # invariantes dos dados: 308 concelhos, códigos a casar, totais na ordem
+      # do RASI, geometria fechada — falha antes de o mapa mentir em produção
+      - run: npm test
+      - run: npm run build
